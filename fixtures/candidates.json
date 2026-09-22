@@ -1,0 +1,75 @@
+[
+  {
+    "canonical_name": "mouth taping",
+    "aliases": [
+      "mouth tape",
+      "입테이프"
+    ],
+    "kind": "behavior",
+    "subcategory": "sleep",
+    "is_wellness": true,
+    "signals": [
+      {
+        "source": "tiktok_cc",
+        "region": "global",
+        "term": "mouth taping",
+        "metric_name": "hashtag_views_growth_pct_7d",
+        "metric_value": 310,
+        "collected_at": "2026-09-21T00:00:00Z",
+        "url": null,
+        "raw": {}
+      },
+      {
+        "source": "reddit",
+        "region": "global",
+        "term": "mouth tape",
+        "metric_name": "posts_7d",
+        "metric_value": 12,
+        "collected_at": "2026-09-21T00:00:00Z",
+        "url": null,
+        "raw": {}
+      },
+      {
+        "source": "google_trends",
+        "region": "global",
+        "term": "mouth taping",
+        "metric_name": "rising_pct",
+        "metric_value": 250,
+        "collected_at": "2026-09-21T00:00:00Z",
+        "url": null,
+        "raw": {}
+      }
+    ]
+  },
+  {
+    "canonical_name": "cold plunge",
+    "aliases": [
+      "냉수욕"
+    ],
+    "kind": "behavior",
+    "subcategory": "recovery",
+    "is_wellness": true,
+    "signals": [
+      {
+        "source": "tiktok_cc",
+        "region": "global",
+        "term": "cold plunge",
+        "metric_name": "hashtag_views_growth_pct_7d",
+        "metric_value": 40,
+        "collected_at": "2026-09-21T00:00:00Z",
+        "url": null,
+        "raw": {}
+      },
+      {
+        "source": "naver_datalab",
+        "region": "kr",
+        "term": "냉수욕",
+        "metric_name": "search_index",
+        "metric_value": 55,
+        "collected_at": "2026-09-21T00:00:00Z",
+        "url": null,
+        "raw": {}
+      }
+    ]
+  }
+]
