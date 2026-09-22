@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>주간 웰니스 트렌드 파인더 — 설계 요약</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+  /* ── 팔레트(design-guide.md §1, Urban Institute 8색) ─────────────────────── */
+  :root {
+    --blue: #1696d2;   --blue-1: #cfe8f3;   --blue-7: #0a4c6a;
+    --green: #55b748;  --green-1: #dcedd9;  --green-7: #2c5c2d;
+    --yellow: #fdbf11; --yellow-1: #fff2cf; --yellow-7: #843215;
+    --red: #db2b27;    --red-1: #f8d5d4;    --red-7: #6e1614;
+    --gray: #d2d2d2;   --gray-1: #f5f5f5;   --gray-6: #9d9d9d; --gray-7: #696969;
+    --orange: #e66600; --orange-1: #fde6d3; --orange-7: #a34700;
+    --ink: #332d2f;
+    --code-bg: #17171c; --code-text: #e4e4e7; --code-muted: #9d9da6;
+
+    /* 표면·테두리·그림자 — 모던 카드 레이아웃용 토큰 */
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #f9fafb;
+    --line: #e6e8ec;
+    --muted: var(--gray-7);
+    --shadow-sm: 0 1px 2px rgba(20, 20, 30, .04), 0 1px 3px rgba(20, 20, 30, .06);
+    --shadow-md: 0 4px 12px rgba(20, 20, 30, .06), 0 1px 3px rgba(20, 20, 30, .05);
+    --radius: 14px;
+    --radius-sm: 8px;
+    --mono: "Cascadia Mono", "JetBrains Mono", Consolas, ui-monospace, monospace;
+    --content-w: 860px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --surface: #171a20; --surface-2: #1d2129; --line: #2a2f3a;
+      --ink: #e7e9ee; --muted: #a2a8b4; --gray-1: #1d2129; --gray: #2a2f3a; --gray-6: #6b7280; --gray-7: #a2a8b4;
+      --blue-1: #123a4f; --green-1: #173322; --yellow-1: #3a2f10; --red-1: #3d1a1a; --orange-1: #3a2410;
+      --blue-7: #9fd3ee; --green-7: #a9dc9c; --yellow-7: #fbd97a; --red-7: #f4a3a0; --orange-7: #f6b27a;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,.4); --shadow-md: 0 6px 16px rgba(0,0,0,.45);
+    }
+  }
+
+  /* ── 기본 ───────────────────────────────────────────────────────────────── */
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+  body {
+    margin: 0;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, "Malgun Gothic", sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.005em;
+  }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--gray-1); padding: 1px 6px; border-radius: 6px; }
+  p { margin: 0.6em 0 1em; }
+  strong { font-weight: 700; }
+
+  /* ── 상단 스티키 바 ───────────────────────────────────────────────────────── */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--surface) 84%, transparent);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-inner { max-width: 1200px; margin: 0 auto; padding: 10px 24px; display: flex; align-items: center; gap: 14px; }
+  .topbar-title { font-weight: 700; font-size: 0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .topbar-kicker { font-family: var(--mono); font-size: 0.72em; font-weight: 700; letter-spacing: .06em; color: var(--blue); padding: 3px 8px; border-radius: 6px; background: var(--blue-1); }
+  .progress { position: absolute; left: 0; bottom: -1px; height: 2px; width: 0; background: linear-gradient(90deg, var(--blue), var(--green)); transition: width .1s linear; }
+
+  /* ── 히어로(제목·메타·BLUF) ─────────────────────────────────────────────────── */
+  .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); background: var(--surface); }
+  .hero::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(600px 240px at 12% 0%, color-mix(in srgb, var(--blue) 14%, transparent), transparent 70%),
+      radial-gradient(500px 220px at 88% 10%, color-mix(in srgb, var(--green) 10%, transparent), transparent 70%);
+  }
+  .hero-inner { position: relative; max-width: var(--content-w); margin: 0 auto; padding: 56px 24px 40px; }
+  .eyebrow { font-family: var(--mono); font-size: 0.78em; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--blue); margin-bottom: 10px; }
+  h1 { font-size: clamp(1.7em, 3.6vw, 2.4em); line-height: 1.25; letter-spacing: -0.02em; margin: 0 0 16px; font-weight: 800; }
+  .meta-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 22px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
+    font-size: 0.82em; font-weight: 600; color: var(--muted);
+    background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-sm);
+  }
+  .pill b { color: var(--ink); font-weight: 700; }
+  /* BLUF 요약박스(report-writer.md "문서 상단 요약 박스") — 클래스명 유지 */
+  .callout {
+    position: relative; border-left: 4px solid var(--blue);
+    background: var(--surface); border: 1px solid var(--line); border-left-width: 4px;
+    border-radius: var(--radius); padding: 18px 22px 18px 24px; margin: 0;
+    box-shadow: var(--shadow-md); font-size: 1.02em;
+  }
+  .callout::before { content: "요약"; display: block; font-family: var(--mono); font-size: 0.72em; font-weight: 700; letter-spacing: .08em; color: var(--blue); margin-bottom: 6px; }
+
+  /* ── 본문 레이아웃(넓은 화면에서 우측 목차) ──────────────────────────────── */
+  .layout { max-width: 1200px; margin: 0 auto; padding: 32px 24px 96px; display: grid; grid-template-columns: minmax(0, var(--content-w)) 1fr; gap: 40px; justify-content: center; }
+  main { min-width: 0; counter-reset: sec; }
+  .toc { position: sticky; top: 76px; align-self: start; font-size: 0.86em; display: none; }
+  @media (min-width: 1100px) { .toc { display: block; } }
+  .toc-title { font-family: var(--mono); font-size: 0.75em; font-weight: 700; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+  .toc ol { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--line); }
+  .toc li a { display: block; padding: 5px 12px; color: var(--muted); border-left: 2px solid transparent; margin-left: -2px; }
+  .toc li a:hover { color: var(--ink); text-decoration: none; }
+  .toc li a.active { color: var(--blue); border-left-color: var(--blue); font-weight: 700; }
+
+  /* ── 섹션·제목 ─────────────────────────────────────────────────────────────── */
+  section.sec { margin: 0 0 40px; }
+  h2 { font-size: 1.35em; letter-spacing: -0.015em; margin: 0 0 14px; padding-top: 8px; display: flex; align-items: center; gap: 10px; font-weight: 800; }
+  h2::before { content: counter(sec, decimal-leading-zero); counter-increment: sec; font-family: var(--mono); font-size: 0.7em; font-weight: 700; color: var(--blue); background: var(--blue-1); padding: 2px 8px; border-radius: 6px; }
+  h3 { font-size: 1.08em; margin: 1.2em 0 0.4em; font-weight: 700; }
+  .note { color: var(--muted); font-size: 0.9em; }
+  .sources { margin-top: 14px; padding: 10px 14px; border-radius: var(--radius-sm); background: var(--surface-2); border: 1px dashed var(--line); font-size: 0.86em; color: var(--muted); }
+  .sources code { background: transparent; padding: 0; }
+
+  /* ── 표: 격자 대신 가로 구분선 + 둥근 컨테이너 ───────────────────────────── */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow-sm); margin: 1em 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.94em; }
+  th, td { padding: 11px 14px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+  thead th { background: var(--surface-2); font-weight: 700; font-size: 0.86em; letter-spacing: .02em; color: var(--muted); position: sticky; top: 0; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: color-mix(in srgb, var(--blue-1) 35%, transparent); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  /* 짧은 라벨/상태 칸이 넓은 옆 칸에 밀려 글자 단위로 줄바꿈되는 것 방지(width:1%+nowrap 트릭) */
+  th.key, td.key { white-space: nowrap; width: 1%; font-weight: 600; }
+  th.status, td.status { white-space: nowrap; width: 1%; text-align: center; }
+  /* 컨테이너 없이 쓴 표도 최소한 정돈되게 */
+  main > table, section > table, details > table { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+
+  /* ── 상태 태그: 점 + 텍스트(색만으로 구분 금지, §1) ──────────────────────── */
+  .tag { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 0.82em; font-weight: 700; line-height: 1.6; white-space: nowrap; }
+  .tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .85; }
+  .tag-done       { background: var(--green-1);  color: var(--green-7); }
+  .tag-unverified { background: var(--yellow-1); color: var(--yellow-7); }
+  .tag-fail       { background: var(--red-1);    color: var(--red-7); }
+  .tag-preexisting{ background: var(--gray-1);   color: var(--gray-7); }
+  .tag-caution    { background: var(--orange-1); color: var(--orange-7); }
+  .tag-info       { background: var(--blue-1);   color: var(--blue-7); }
+
+  /* ── Task 블록(Toss 레퍼런스: 배지+필드리스트+다크코드패널) ────────────────── */
+  .block { border: 1px solid var(--line); border-radius: var(--radius); padding: 24px 26px; margin: 18px 0; background: var(--surface); box-shadow: var(--shadow-sm); transition: box-shadow .2s ease; }
+  .block:hover { box-shadow: var(--shadow-md); }
+  .block-badge { display: inline-block; font-family: var(--mono); font-size: 0.74em; font-weight: 700; letter-spacing: 0.06em; padding: 3px 10px; border-radius: 6px; background: var(--blue-1); color: var(--blue-7); margin-bottom: 10px; }
+  .block h3 { margin: 2px 0 6px; font-size: 1.12em; }
+  .block-desc { color: var(--muted); margin: 0 0 16px; }
+  .btn-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; background: var(--blue-1); color: var(--blue-7); font-weight: 700; font-size: 0.85em; text-decoration: none; margin-bottom: 14px; transition: filter .15s; }
+  .btn-pill:hover { filter: brightness(.96); text-decoration: none; }
+
+  .field-list { margin: 0; padding: 0; }
+  .field-row { border-bottom: 1px solid var(--line); padding: 12px 0; }
+  .field-row:last-child { border-bottom: none; }
+  .field-name { font-family: var(--mono); font-weight: 700; font-size: 0.95em; }
+  .field-tag-req { color: var(--orange); font-weight: 700; font-size: 0.82em; margin-left: 8px; }
+  .field-tag-type { color: var(--muted); font-size: 0.82em; margin-left: 4px; }
+  .field-row p { margin: 6px 0 0; color: var(--ink); }
+
+  /* ── 다크 코드 패널: 창 점 3개 + 라벨 + 복사 버튼 ───────────────────────── */
+  .code-dark { position: relative; background: var(--code-bg); color: var(--code-text); border-radius: 12px; padding: 14px 18px 16px; margin: 12px 0; overflow-x: auto; box-shadow: var(--shadow-sm); }
+  .code-dark .panel-label { display: flex; align-items: center; gap: 8px; color: var(--code-muted); font-family: var(--mono); font-size: 0.72em; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; padding-right: 56px; }
+  .code-dark .panel-label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #ff5f57; box-shadow: 14px 0 0 #febc2e, 28px 0 0 #28c840; margin-right: 30px; flex: none; }
+  .code-dark pre, .code-dark code { font-family: var(--mono); font-size: 0.85em; white-space: pre-wrap; margin: 0; background: none; color: inherit; padding: 0; }
+  .code-dark .copy { position: absolute; top: 10px; right: 12px; border: 1px solid #2f3340; background: #1f232c; color: var(--code-muted); font-size: 0.72em; padding: 3px 9px; border-radius: 6px; cursor: pointer; font-family: inherit; }
+  .code-dark .copy:hover { color: var(--code-text); }
+
+  /* ── 접이식·다이어그램·근거 카드 ──────────────────────────────────────────── */
+  details { margin: 0.8em 0; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); padding: 0 16px; }
+  details > summary { cursor: pointer; font-weight: 700; padding: 12px 0; list-style: none; display: flex; align-items: center; gap: 8px; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: "›"; display: inline-block; color: var(--muted); transition: transform .15s; font-size: 1.2em; line-height: 1; }
+  details[open] > summary::before { transform: rotate(90deg); }
+  details[open] > summary { border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+  details > *:last-child { margin-bottom: 14px; }
+
+  pre.mermaid { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; text-align: center; box-shadow: var(--shadow-sm); overflow-x: auto; }
+  pre.mermaid:not([data-processed]) { color: transparent; min-height: 60px; }
+
+  /* 우아한형제들·토스 실물 관찰(design-guide.md §7): 실제 화면·로그 캡처는 카드형으로 */
+  .evidence-card { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin: 16px 0; }
+  .evidence-card img { max-width: 100%; border-radius: var(--radius-sm); display: block; }
+  .evidence-card .tag-row { display: flex; gap: 6px; margin-bottom: 10px; }
+  .evidence-card figcaption { color: var(--muted); font-size: 0.86em; margin-top: 8px; }
+
+  /* ── 하단 ─────────────────────────────────────────────────────────────────── */
+  .footer { max-width: 1200px; margin: 0 auto; padding: 18px 24px 40px; color: var(--muted); font-size: 0.82em; border-top: 1px solid var(--line); }
+
+  @media (max-width: 640px) {
+    .hero-inner { padding: 36px 18px 28px; }
+    .layout { padding: 20px 16px 64px; }
+    .block { padding: 18px 16px; }
+    th, td { padding: 9px 10px; }
+  }
+  @media print {
+    .topbar, .toc, .code-dark .copy { display: none !important; }
+    body { background: #fff; }
+    .block, .callout, .table-wrap { box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <span class="topbar-kicker">DESIGN</span>
+    <span class="topbar-title">주간 웰니스 트렌드 파인더 — 설계 요약</span>
+    <span class="note">2026-09-22</span>
+  </div>
+  <div class="progress" id="progress"></div>
+</header>
+
+<div class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">설계 요약 · 읽기용</div>
+    <h1>주간 웰니스 트렌드 파인더</h1>
+    <div class="meta-row">
+      <span class="pill">작성일 <b>2026-09-22</b></span>
+      <span class="pill">대상 <b>keyword-scraper</b></span>
+      <span class="pill">상태 <b>초안 · 검토 대기</b></span>
+    </div>
+    <div class="callout">
+      <strong>매주 월요일, 전 세계 웰니스에서 뜨는 제품·행위 상위 10개를 근거와 함께 받습니다.</strong><br>
+      해외에서 막 뜨는 것, 국내에 상륙한 것, 이미 지난 것을 구분해 팝업·비치 결정에 씁니다.<br>
+      결정할 것: 이 설계로 구현 시작할지.
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+<main>
+
+<section class="sec" id="배경">
+  <h2>배경</h2>
+  <p>주간 낚시 보고서와 같습니다.<br>
+  어디서 뭐가 잡히기 시작했는지(해외), 우리 바다까지 왔는지(국내), 이미 다 잡혀서 늦었는지(정점 지남)를 알려주고, 낚시는 사람이 합니다.</p>
+  <p>한국에서 사우나를 운영 중이고 공간이 넓어서 팝업 스토어나 비치할 물건을 계속 골라야 합니다.<br>
+  지금까지 정한 것은 네 가지입니다.</p>
+  <ul>
+    <li>키워드를 넣고 점수를 재는 게 아니라, <strong>키워드 없이 "지금 뜨는 것"을 발견</strong>하는 방식입니다.</li>
+    <li>대상은 <strong>웰니스 전체</strong>입니다.<br>
+    사우나 용품에 한정하지 않습니다.<br>
+    제품(마그네슘, 레드라이트 마스크)과 행위(mouth taping, cold plunge) 둘 다 봅니다.</li>
+    <li>경쟁사(Othership, 사우나스, Bathclub)가 뭘 들여왔는지는 <strong>보지 않습니다.</strong><br>
+    그들이 이미 들여온 걸 따라가면 늦은 겁니다.</li>
+    <li>매주 반복 실행합니다.<br>
+    주차 데이터가 쌓이면 "평소 대비 얼마나 튀었나"를 우리 데이터로 계산할 수 있게 됩니다.</li>
+  </ul>
+  <div class="sources">근거: 에이전트가 실행하는 정밀 설계서 <code>docs/superpowers/specs/2026-09-22-wellness-trend-finder-design.md</code> §1</div>
+</section>
+
+<section class="sec" id="구조">
+  <h2>구조 — 4개 팀 릴레이</h2>
+  <p><strong>수집 → 정리 → 점수 → 선정, 네 팀이 순서대로 넘기고 각 팀에 "딴지 거는 검토자"가 한 명씩 붙습니다.</strong><br>
+  회사 보고서 만드는 흐름과 같습니다.<br>
+  자료 모으는 사람, 정리하는 사람, 분석하는 사람, 최종안 뽑는 사람, 그리고 단계마다 "이거 근거 있어?" 묻는 사람.</p>
+
+<pre class="mermaid">
+flowchart LR
+  S[주 1회 실행] --> T1
+  subgraph T1[1. 자료조사팀]
+    direction TB
+    C1[수집 4명] --> R1{검토자}
+  end
+  subgraph T2[2. 정제팀]
+    direction TB
+    C2[추출·병합·분류 3명] --> R2{검토자}
+  end
+  subgraph T3[3. 분석팀]
+    direction TB
+    L3[팀장 Fable] --> C3[분석 3명] --> R3{검토자}
+  end
+  subgraph T4[4. 선정팀]
+    direction TB
+    L4[팀장 Fable] --> C4[작성·검증·참조링크 3명] --> R4{검토자}
+  end
+  T1 --> T2 --> T3 --> T4 --> OUT[주간 리포트<br/>상위 10개]
+  DB[(주차 시계열 저장소)]
+  T1 -.저장.-> DB
+  T3 -.과거 주차 조회.-> DB
+  classDef lead fill:#cfe8f3,stroke:#332d2f,stroke-width:2.5px
+  classDef critic fill:#fff2cf,stroke:#332d2f,stroke-width:2.5px
+  classDef out fill:#dcedd9,stroke:#332d2f,stroke-width:2.5px
+  class L3,L4 lead
+  class R1,R2,R3,R4 critic
+  class OUT out
+</pre>
+  <p class="note">파랑 = Fable 팀장, 노랑 = 검토자, 초록 = 최종 산출물.</p>
+
+  <p>검토자가 "다시 해"라고 하면 <strong>딱 한 번만</strong> 다시 합니다.<br>
+  두 번째도 퇴짜면 경고 딱지를 붙이고 다음 팀으로 넘깁니다.<br>
+  무한 반복으로 비용이 새는 걸 막기 위해서입니다.</p>
+
+  <div class="block">
+    <span class="block-badge">TEAM 1</span>
+    <h3>자료조사팀 — 5명</h3>
+    <p class="block-desc">다섯 소스에서 이번 주 데이터를 긁어옵니다.</p>
+    <div class="field-list">
+      <div class="field-row">
+        <span class="field-name">SNS 수집</span><span class="field-tag-type">Sonnet</span>
+        <p>TikTok Creative Center의 건강·뷰티·스포츠 분야 급등 해시태그, Apify를 통한 Instagram 해시태그 게시물.</p>
+      </div>
+      <div class="field-row">
+        <span class="field-name">검색 수집</span><span class="field-tag-type">Sonnet</span>
+        <p>Google Trends 건강 카테고리에서 급등 검색어 (미국·영국·한국).</p>
+      </div>
+      <div class="field-row">
+        <span class="field-name">커뮤니티 수집</span><span class="field-tag-type">Sonnet</span>
+        <p>Reddit 영양제·바이오해킹·수면·스킨케어·운동 커뮤니티의 주간 인기글.</p>
+      </div>
+      <div class="field-row">
+        <span class="field-name">국내 수집</span><span class="field-tag-type">Sonnet</span>
+        <p>네이버 데이터랩 검색 추이, 한글 해시태그 Instagram.</p>
+      </div>
+      <div class="field-row">
+        <span class="field-name">검토자</span><span class="field-tag-req">Opus</span>
+        <p>빠진 소스 없나, 일주일 넘은 데이터 아닌가, 한 소스에만 쏠렸나, 봇·광고 게시물이 섞였나를 봅니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    <span class="block-badge">TEAM 2</span>
+    <h3>정제팀 — 4명</h3>
+    <p class="block-desc">"mouth tape"와 "입테이프"가 같은 것임을 알아보고 하나로 합칩니다. 웰니스가 아닌 건 버립니다.</p>
+    <div class="field-list">
+      <div class="field-row">
+        <span class="field-name">개체 추출</span><span class="field-tag-type">Sonnet</span>
+        <p>수집된 글·해시태그에서 제품명과 행위명을 뽑아냅니다.</p>
+      </div>
+      <div class="field-row">
+        <span class="field-name">병합 판단</span><span class="field-tag-req">Opus</span>
+        <p>다국어로 흩어진 같은 대상을 하나로 묶습니다.<br>
+        가장 어려운 판단이라 Opus를 씁니다.</p>
+      </div>
+      <div class="field-row">
+        <span class="field-name">분류</span><span class="field-tag-type">Sonnet</span>
+        <p>웰니스 맞는지, 제품인지 행위인지, 수면·영양·스킨케어·운동·멘탈·향 중 어디인지 붙입니다.</p>
+      </div>
+      <div class="field-row">
+        <span class="field-name">검토자</span><span class="field-tag-req">Opus</span>
+        <p>다른 걸 합치지 않았나, 같은 걸 둘로 두지 않았나, 브랜드명과 일반명사를 헷갈리지 않았나를 봅니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    <span class="block-badge">TEAM 3</span>
+    <h3>분석팀 — 5명</h3>
+    <p class="block-desc">얼마나 튀었는지 점수를 매기고, 이번 주 처음인지·계속 오르는 중인지·이미 꺾였는지 판정합니다.</p>
+    <div class="field-list">
+      <div class="field-row">
+        <span class="field-name">팀장</span><span class="field-tag-req">Fable</span>
+        <p>분석 3명의 결과를 종합해 최종 점수와 단계 라벨을 확정합니다.</p>
+      </div>
+      <div class="field-row">
+        <span class="field-name">분석 3명</span><span class="field-tag-type">Sonnet</span>
+        <p>각각 "평소 대비 얼마나 튀었나", "매년 이맘때 뜨는 계절템 아닌가", "해외와 국내 온도차는 어떤가"를 맡습니다.</p>
+      </div>
+      <div class="field-row">
+        <span class="field-name">검토자</span><span class="field-tag-req">Opus</span>
+        <p>한 곳에서만 튄 거 아닌가, 광고 캠페인 때문 아닌가, 이미 정점 지난 거 아닌가를 따지고 감점이나 제외를 요구할 수 있습니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    <span class="block-badge">TEAM 4</span>
+    <h3>선정팀 — 5명</h3>
+    <p class="block-desc">상위 10개를 뽑고, 각각 팝업 부스·매장 비치·클래스 중 어떤 형태로 구현할지 제안합니다.</p>
+    <div class="field-list">
+      <div class="field-row">
+        <span class="field-name">팀장</span><span class="field-tag-req">Fable</span>
+        <p>최종 10개를 고르고 구현 형태를 판단합니다.</p>
+      </div>
+      <div class="field-row">
+        <span class="field-name">작성·검증 2명</span><span class="field-tag-type">Sonnet</span>
+        <p>후보 카드를 쓰고, 근거 링크가 실제로 열리는지·관련 브랜드가 맞는지 확인합니다.</p>
+      </div>
+      <div class="field-row">
+        <span class="field-name">참조 링크 탐색</span><span class="field-tag-type">Sonnet</span>
+        <p>브랜드 공식 사이트, 구매 페이지(해외·국내), 설명 기사를 웹 검색으로 찾아 붙입니다.<br>
+        행위라면 따라 하는 방법 링크도 찾습니다.</p>
+      </div>
+      <div class="field-row">
+        <span class="field-name">검토자</span><span class="field-tag-req">Opus</span>
+        <p>참조 링크가 종류별로 붙었나, 브랜드에 연락 가능한가, 한국 수입 가능한가, 리스트가 10개를 넘지 않았나를 봅니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <details>
+  <summary>모델 배분 검산과 역할 분리 원칙</summary>
+  <p>Fable 팀장 2명을 빼면 Sonnet 12 : Opus 5로, 요청한 7:3에 맞습니다.<br>
+  검토자 4명은 전부 Opus입니다 — 미세한 오류를 잡는 자리라서요.</p>
+  <p>숫자 계산(증가율, 평소 대비 편차)은 AI가 아니라 코드가 합니다.<br>
+  AI는 "이게 같은 물건인가", "이 급등이 진짜인가" 같은 판단만 합니다.<br>
+  팀 순서를 돌리고 재작업 횟수를 세는 진행 역할도 코드입니다.</p>
+  </details>
+  <div class="sources">근거: 정밀 설계서 §4 아키텍처, §5 팀 구성, §6 비판자 프로토콜</div>
+</section>
+
+<section class="sec" id="핫함-기준">
+  <h2>무엇을 "핫하다"고 볼 것인가</h2>
+  <p><strong>핫함은 "많이 언급됨"이 아니라 "갑자기 늘어남"으로 잽니다.</strong><br>
+  나이키는 항상 언급량이 많지만 핫한 건 아닙니다.<br>
+  지난달까지 조용하다가 이번 주 갑자기 3배 뛴 것이 핫한 것입니다.<br>
+  그래서 모든 수치를 "평소 대비 얼마나 튀었나"로 바꿔서 봅니다.</p>
+
+  <div class="table-wrap"><table>
+    <thead>
+      <tr><th>무엇을 보나</th><th>어디서 보나</th><th class="status">비중</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>검색이나 언급이 갑자기 늘었나</td><td>Google Trends, 네이버 데이터랩, TikTok, Instagram</td><td class="status num">35%</td></tr>
+      <tr><td>여러 사람이 따라 하나 (한 명이 아니라)</td><td>TikTok과 Instagram의 작성자 수 대비 게시물 수</td><td class="status num">25%</td></tr>
+      <tr><td>광고가 아니라 일반인이 올리나</td><td>Instagram 계정 성격</td><td class="status num">15%</td></tr>
+      <tr><td>여러 곳에서 동시에 뜨나</td><td>위 소스들의 교차</td><td class="status num">25%</td></tr>
+    </tbody>
+  </table></div>
+
+  <p>마지막 항목이 핵심 필터입니다.<br>
+  <strong>5개 소스 중 3곳 이상에서 동시에 튀어야</strong> 리스트에 올라갑니다.<br>
+  한 곳에서만 튀는 건 광고 캠페인이거나 우연일 확률이 높아서 "관찰 중"으로만 저장합니다.</p>
+
+  <details>
+  <summary>처음 정리했던 5가지 기준과의 관계</summary>
+  <p>처음 얘기한 기준은 ① 화제성 ② 희소성(오픈런·품절·리셀) ③ 모방(챌린지) ④ 자발적 인증 ⑤ 기업 움직임(팝업·콜라보)이었습니다.</p>
+  <p>첫 버전은 ①③④를 잽니다.<br>
+  ②(리셀가·품절)와 ⑤(팝업·콜라보 기사)는 데이터 소스가 추가로 필요해서 두 번째 버전으로 미뤘습니다.<br>
+  행위(예: mouth taping)는 애초에 품절이나 리셀이 없으니 ②⑤가 빠져도 자연스럽습니다.</p>
+  </details>
+  <div class="sources">근거: 정밀 설계서 §2 "핫함" 정의와 정량화 — 비중은 가중치 0.35 / 0.25 / 0.15 / 0.25</div>
+</section>
+
+<section class="sec" id="해외-국내">
+  <h2>해외와 국내를 따로 보는 이유</h2>
+  <p><strong>해외에서 뜬 것이 한국에 오기까지 보통 몇 달 걸립니다.</strong><br>
+  그 시간차가 선점 기회입니다.<br>
+  그래서 후보마다 두 종류의 라벨을 붙입니다.</p>
+
+  <div class="table-wrap"><table>
+    <thead>
+      <tr><th class="key">라벨</th><th>뜻</th><th>권고</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="key"><span class="tag tag-info">해외만 뜸</span></td><td>글로벌 급등, 국내 검색은 아직 조용함</td><td>팝업으로 먼저 들여올 후보</td></tr>
+      <tr><td class="key"><span class="tag tag-done">국내 상승 중</span></td><td>네이버 검색과 한글 해시태그가 오르는 중</td><td>지금 바로 비치</td></tr>
+      <tr><td class="key"><span class="tag tag-fail">국내 정점 지남</span></td><td>국내에서 2주 연속 하락</td><td>제외 권고</td></tr>
+    </tbody>
+  </table></div>
+
+  <p>단계 라벨은 따로 붙습니다.<br>
+  <span class="tag tag-info">신규</span> 이번 주 처음 등장 · <span class="tag tag-done">상승</span> 2주 이상 연속 상승 · <span class="tag tag-caution">정점</span> 상승이 멈춤 · <span class="tag tag-fail">하락</span> 2주 연속 하락 · <span class="tag tag-preexisting">관찰 중</span> 아직 3곳 교차 미달.</p>
+  <div class="sources">근거: 정밀 설계서 §3 생애주기 라벨</div>
+</section>
+
+<section class="sec" id="데이터-소스">
+  <h2>데이터는 어디서 오나</h2>
+  <p><strong>첫 버전은 5곳.</strong><br>
+  해외 3곳이 "발견"을 하고, 나머지 2곳이 "검증"을 합니다.</p>
+
+  <div class="table-wrap"><table>
+    <thead>
+      <tr><th class="key">소스</th><th class="key">역할</th><th>비고</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="key">TikTok Creative Center</td><td class="key">발견 (해외)</td><td>건강·뷰티·스포츠 분야 급등 해시태그. 가장 강한 신호</td></tr>
+      <tr><td class="key">Google Trends</td><td class="key">발견 (해외)</td><td>건강 카테고리에서 급등 검색어</td></tr>
+      <tr><td class="key">Reddit</td><td class="key">발견 (해외)</td><td>영양제·바이오해킹·수면·스킨케어 커뮤니티 주간 인기글</td></tr>
+      <tr><td class="key">Instagram</td><td class="key">검증 (해외+국내)</td><td>후보가 정해진 뒤 해시태그로 확인. 키워드 없이는 못 씀. Apify로 수집</td></tr>
+      <tr><td class="key">네이버 데이터랩</td><td class="key">검증 (국내)</td><td>후보 키워드의 국내 검색 추이</td></tr>
+    </tbody>
+  </table></div>
+
+  <p>Instagram은 "지금 뭐가 뜨나"를 알려주는 기능이 없습니다.<br>
+  그래서 발견은 못 하고, 다른 곳에서 찾은 후보를 확인하는 데 씁니다.</p>
+
+  <details>
+  <summary>두 번째 버전에 추가할 소스</summary>
+  <p>Amazon 급상승 랭킹(품절·판매 신호), GDELT 뉴스(팝업·콜라보 기사), YouTube, Popply(국내 팝업 일정), Kream(국내 리셀가).<br>
+  기준 ②희소성과 ⑤기업 움직임이 여기서 채워집니다.</p>
+  </details>
+  <div class="sources">근거: 정밀 설계서 §8 소스별 수집 상세</div>
+</section>
+
+<section class="sec" id="결과물">
+  <h2>매주 받아보는 결과물</h2>
+  <p><strong>마크다운 파일 하나.</strong><br>
+  상위 10개, 각각 카드 한 장.<br>
+  Slack이나 Notion으로 받는 건 나중에 정합니다.</p>
+
+  <div class="evidence-card">
+    <div class="tag-row">
+      <span class="tag tag-preexisting">행위</span>
+      <span class="tag tag-preexisting">수면</span>
+      <span class="tag tag-info">해외만 뜸</span>
+      <span class="tag tag-info">신규</span>
+    </div>
+    <p><strong>3위. Mouth Taping</strong></p>
+    <p>점수 4.2 · TikTok 7일간 +310% · Reddit 게시물 12건 · Google Trends 급등</p>
+    <p>국내: 네이버 검색 거의 없음</p>
+    <p>구현 형태: 수면 클래스 + 테이프 제품 리테일</p>
+    <p>관련 브랜드: Hostage Tape, Dream Recovery</p>
+    <p>근거 링크 3개 (왜 핫한가 — TikTok·Reddit·Trends 원문)</p>
+    <p>참조 링크: Hostage Tape 공식 · Amazon 제품 페이지 · 설명 기사 · 국내 구매처 없음</p>
+    <p><span class="tag tag-caution">주의</span> 크리에이터 한 명이 띄운 것일 가능성 (분석팀 검토자)</p>
+  </div>
+
+  <p>근거 링크는 "왜 핫한가"의 출처이고, 참조 링크는 "그게 뭔가"를 바로 확인하고 구매·연락까지 갈 수 있는 곳입니다.<br>
+  행위라면 설명 기사와 따라 하는 방법 링크가 붙습니다.<br>
+  주의 딱지가 붙은 건 "숫자는 좋은데 의심 가는 점이 있다"는 뜻입니다.<br>
+  최종 판단은 읽는 사람 몫입니다.</p>
+  <div class="sources">근거: 정밀 설계서 §7 데이터 계약(ReportCard·ReferenceLink), §10 출력</div>
+</section>
+
+<section class="sec" id="비용">
+  <h2>비용</h2>
+  <p><strong>월 약 10~15만 원 예상.</strong><br>
+  Apify 약 7만 원 + Claude API 약 3~8만 원.<br>
+  세 번 돌려보고 실제 사용량으로 다시 잡습니다.<br>
+  한 번 실행에 4만 원을 넘으면 자동 중단됩니다.</p>
+  <div class="sources">근거: 정밀 설계서 §13 비용 추정, §11 오류 처리(비용 상한)</div>
+</section>
+
+<section class="sec" id="잔여-리스크">
+  <h2>잔여·리스크</h2>
+  <details open>
+  <summary>펼쳐서 보기</summary>
+  <div class="table-wrap"><table>
+    <thead><tr><th class="status">상태</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td class="status"><span class="tag tag-caution">주의</span></td><td>TikTok과 Google Trends는 공식 API가 없어서 화면을 긁는 방식입니다. 화면이 바뀌면 깨질 수 있고, 그때는 Apify 유료 수집기로 갈아탑니다. 갈아타기 쉽게 설계합니다.</td></tr>
+      <tr><td class="status"><span class="tag tag-unverified">미검증</span></td><td>처음 4주는 "평소"가 없습니다. 우리 데이터가 쌓이기 전이라, 그동안은 각 소스가 자체 제공하는 증가율을 씁니다. 4주 지나면 우리 기준선으로 전환됩니다.</td></tr>
+      <tr><td class="status"><span class="tag tag-caution">주의</span></td><td>"crocs"처럼 브랜드명인지 특정 제품인지 헷갈리는 이름은 정제팀 검토자가 잡고, 정답 예시 모음으로 꾸준히 점검합니다.</td></tr>
+      <tr><td class="status"><span class="tag tag-info">정보</span></td><td>리포트 전달 채널(Slack·Notion)은 미결. 첫 버전은 파일입니다.</td></tr>
+    </tbody>
+  </table></div>
+  </details>
+  <div class="sources">근거: 정밀 설계서 §14 리스크·미결</div>
+</section>
+
+<section class="sec" id="다음-단계">
+  <h2>다음 단계</h2>
+  <p>이 문서 검토 후 수정 요청이 없으면 구현 계획서 작성으로 넘어갑니다.<br>
+  구현 순서는 아래와 같습니다.</p>
+
+<pre class="mermaid">
+flowchart LR
+  A[1. 뼈대<br/>저장소·팀 릴레이 흐름] --> B[2. 자료조사팀<br/>수집기 5개] --> C[3. 정제팀] --> D[4. 분석팀] --> E[5. 선정팀] --> F[6. 자동 실행<br/>주 1회 스케줄]
+</pre>
+  <div class="sources">근거: 정밀 설계서 §15 구현 순서</div>
+</section>
+
+</main>
+
+<nav class="toc" aria-label="목차">
+  <div class="toc-title">목차</div>
+  <ol id="toc-list"></ol>
+</nav>
+</div>
+
+<div class="footer">작성 2026-09-22 · Claude Code · human-readable-reports 템플릿 v2</div>
+
+<script>
+  // 목차 자동 생성 + 현재 위치 강조 + 상단 진행바 + 코드 복사 버튼 (전부 선택 기능, 꺼져도 문서는 읽힘)
+  (function () {
+    var list = document.getElementById('toc-list');
+    var heads = Array.prototype.slice.call(document.querySelectorAll('main h2'));
+    var secs = heads.map(function (h, i) {
+      var sec = h.closest('section') || h;
+      if (!sec.id) sec.id = 'sec-' + (i + 1);
+      var li = document.createElement('li');
+      var a = document.createElement('a');
+      a.href = '#' + sec.id; a.textContent = h.textContent.trim();
+      li.appendChild(a); list.appendChild(li);
+      return sec;
+    });
+    var links = list.querySelectorAll('a');
+    var bar = document.getElementById('progress');
+    function onScroll() {
+      var y = window.scrollY + 90, cur = 0;
+      secs.forEach(function (sec, i) { if (sec.offsetTop <= y) cur = i; });
+      links.forEach(function (a, i) { a.classList.toggle('active', i === cur); });
+      var d = document.documentElement;
+      var p = d.scrollTop / (d.scrollHeight - d.clientHeight) * 100;
+      bar.style.width = (isFinite(p) ? p : 0) + '%';
+    }
+    window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+
+    document.querySelectorAll('.code-dark').forEach(function (box) {
+      var pre = box.querySelector('pre'); if (!pre) return;
+      var btn = document.createElement('button'); btn.className = 'copy'; btn.type = 'button'; btn.textContent = '복사';
+      btn.addEventListener('click', function () {
+        navigator.clipboard.writeText(pre.textContent).then(function () {
+          btn.textContent = '복사됨'; setTimeout(function () { btn.textContent = '복사'; }, 1200);
+        });
+      });
+      box.appendChild(btn);
+    });
+  })();
+</script>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  // 색 언어(design-guide.md §7): 초록=성공/정상, 빨강=실패, 파랑=진행중·현재값, 회색=중립·시작상태
+  // theme: 'default'는 themeVariables를 무시한다 — 'base'여야 커스텀 색·폰트가 실제로 적용됨(2026-09-22 실측 확인, 라벤더+trebuchet ms로 나오던 버그)
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      fontFamily: '"Pretendard", -apple-system, sans-serif',
+      primaryColor: '#cfe8f3', primaryBorderColor: '#1696d2', primaryTextColor: '#332d2f',
+      lineColor: '#9d9da6', secondaryColor: '#dcedd9', tertiaryColor: '#f5f5f5'
+    },
+    // 브루탈리스트 각색(출처: modern-mermaid.live, MIT — 원본은 orange/teal/yellow 장식색을 nth-child로 순환;
+    // 우리는 장식색 대신 §7 색언어(성공=초록/실패=빨강/진행중=파랑/중립=회색)를 classDef로 직접 지정하는 쪽을 쓴다)
+    themeCSS: `
+      .node rect, .node polygon, .node circle {
+        stroke: #332d2f !important;
+        stroke-width: 2.5px !important;
+        filter: drop-shadow(4px 4px 0px #332d2f);
+      }
+      .node .label, .nodeLabel { font-weight: 700 !important; }
+      .edgePath .path { stroke: #332d2f !important; stroke-width: 2px !important; stroke-linecap: square; }
+      .arrowheadPath { fill: #332d2f !important; stroke: #332d2f !important; }
+      .edgeLabel { background-color: #ffffff !important; font-weight: 700 !important; }
+      .cluster rect { stroke: #332d2f !important; stroke-width: 2px !important; filter: drop-shadow(5px 5px 0px #332d2f); }
+      /* actor/note: 그림자 필터를 걸면 이 렌더러에서 텍스트가 겹쳐 보이는 버그 확인(2026-09-22, 실측) — 굵은 테두리만 적용 */
+      .actor { stroke: #332d2f !important; stroke-width: 2.5px !important; }
+      .actor-line { stroke: #332d2f !important; }
+      .messageLine0, .messageLine1 { stroke: #332d2f !important; stroke-width: 2px !important; }
+      .note { stroke: #332d2f !important; stroke-width: 2.5px !important; }
+    `
+  });
+</script>
+</body>
+</html>
