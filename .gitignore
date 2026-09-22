@@ -6,3 +6,4 @@ __pycache__/
 data/*.sqlite
 reports/*.md
 .env
+.claude/launch.json
